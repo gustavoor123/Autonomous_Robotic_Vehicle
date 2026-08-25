@@ -1,0 +1,421 @@
+//these are the left and right dc motors
+const int dcmotorPin1  = 5;  //Pin 14
+const int dcmotorPin2  = 6;  //Pin 10
+/////////////////////////////////////////
+const int dcmotorPin3  = 11; //Pin 7
+const int dcmotorPin4  = 3;  //Pin 2
+//Added photoresister
+const int ANALOG_IN = A2;
+int anRead = 0;
+//this is the ultrasonic sensor for distance
+const int trigPin = A0;
+const int echoPin = A1;
+float duration, distance;
+#include <Servo.h> //this is the microservo for ultrasonic sensor
+
+// Piezo speaker code notes (copied directly from hackster.io)
+#define NOTE_RE3  147
+#define NOTE_RES3 156
+#define NOTE_MI3  165
+#define NOTE_FA3  175
+#define NOTE_SOL3  196
+#define NOTE_SOLS3 208
+#define NOTE_LA3  220
+#define NOTE_LAS3 233
+#define NOTE_SI3  247
+
+#define NOTE_DO4  262
+#define NOTE_DOS4 277
+#define NOTE_RE4  294
+#define NOTE_RES4 311
+#define NOTE_FA4  349
+#define NOTE_FAS4 370
+#define NOTE_SOLS4 415
+#define NOTE_LA4  440
+#define NOTE_LAS4 466
+
+#define NOTE_DO5  523
+
+#define NOTE_MI6  1319
+#define NOTE_SOL6  1568
+#define NOTE_LA6  1760
+#define NOTE_LAS6 1865
+#define NOTE_SI6  1976
+
+#define NOTE_DO7  2093
+#define NOTE_RE7  2349
+#define NOTE_MI7  2637
+#define NOTE_FA7  2794
+#define NOTE_SOL7  3136
+#define NOTE_LA7  3520
+
+#define melodyPin 8
+
+int melody[] = {
+  NOTE_MI7, NOTE_MI7, 0, NOTE_MI7,
+  0, NOTE_DO7, NOTE_MI7, 0,
+  NOTE_SOL7, 0, 0,  0,
+  NOTE_SOL6, 0, 0, 0,
+
+
+  NOTE_DO7, 0, 0, NOTE_SOL6,
+  0, 0, NOTE_MI6, 0,
+  0, NOTE_LA6, 0, NOTE_SI6,
+  0, NOTE_LAS6, NOTE_LA6, 0,
+
+
+  NOTE_SOL6, NOTE_MI7, NOTE_SOL7,
+  NOTE_LA7, 0, NOTE_FA7, NOTE_SOL7,
+  0, NOTE_MI7, 0, NOTE_DO7,
+  NOTE_RE7, NOTE_SI6, 0, 0,
+
+  
+  NOTE_DO7, 0, 0, NOTE_SOL6,
+  0, 0, NOTE_MI6, 0,
+  0, NOTE_LA6, 0, NOTE_SI6,
+  0, NOTE_LAS6, NOTE_LA6, 0,
+
+
+  NOTE_SOL6, NOTE_MI7, NOTE_SOL7,
+  NOTE_LA7, 0, NOTE_FA7, NOTE_SOL7,
+  0, NOTE_MI7, 0, NOTE_DO7,
+  NOTE_RE7, NOTE_SI6, 0, 0
+};
+
+int tempo[] = {
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+
+
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+
+
+  9, 9, 9,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+
+
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+
+  
+  9, 9, 9,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12
+};
+
+int underworld_melody[] = {
+  NOTE_DO4, NOTE_DO5, NOTE_LA3, NOTE_LA4,
+  NOTE_LAS3, NOTE_LAS4, 0,
+  0,
+  NOTE_DO4, NOTE_DO5, NOTE_LA3, NOTE_LA4,
+  NOTE_LAS3, NOTE_LAS4, 0,
+  0,
+  NOTE_FA3, NOTE_FA4, NOTE_RE3, NOTE_RE4,
+  NOTE_RES3, NOTE_RES4, 0,
+  0,
+  NOTE_FA3, NOTE_FA4, NOTE_RE3, NOTE_RE4,
+  NOTE_RES3, NOTE_RES4, 0,
+  0, NOTE_RES4, NOTE_DOS4, NOTE_RE4,
+  NOTE_DOS4, NOTE_RES4,
+  NOTE_RES4, NOTE_SOLS3,
+  NOTE_SOL3, NOTE_DOS4,
+  NOTE_DO4, NOTE_FAS4, NOTE_FA4, NOTE_MI3, NOTE_LAS4, NOTE_LA4,
+  NOTE_SOLS4, NOTE_RES4, NOTE_SI3,
+  NOTE_LAS3, NOTE_LA3, NOTE_SOLS3,
+  0, 0, 0
+};
+
+int underworld_tempo[] = {
+  12, 12, 12, 12,
+  12, 12, 6,
+  3,
+  12, 12, 12, 12,
+  12, 12, 6,
+  3,
+  12, 12, 12, 12,
+  12, 12, 6,
+  3,
+  12, 12, 12, 12,
+  12, 12, 6,
+  6, 18, 18, 18,
+  6, 6,
+  6, 6,
+  6, 6,
+  18, 18, 18, 18, 18, 18,
+  10, 10, 10,
+  10, 10, 10,
+  3, 3, 3
+};
+
+//note that microservo will have 3 positions, 0 degrees which starts from very left
+//second position will be 90 degrees which is in the middle/center
+//third position will be 180 degrees so all the way to the right (like a protactor)
+Servo microServo; //this calls the microservo function in the library
+int left_side_check, centerCheck, right_side_check;
+
+void setup(){
+    //the pin outputs for the dc motors.
+    pinMode(dcmotorPin1, OUTPUT);
+    pinMode(dcmotorPin2, OUTPUT);
+    pinMode(dcmotorPin3, OUTPUT);
+    pinMode(dcmotorPin4, OUTPUT);
+
+    //this is the ultrasonic sensor for distance
+    pinMode(trigPin, OUTPUT);
+    pinMode(echoPin, INPUT);
+
+    //this is both the red and green LEDs
+    pinMode(4, OUTPUT);  // Red LED
+    pinMode(13, OUTPUT); // Green LED
+ 
+    //this is photoresister for the blue/yellow LEDs.
+    pinMode(A2,INPUT);
+    pinMode(2,OUTPUT);
+    pinMode(12,OUTPUT);
+    Serial.begin(9600);
+   
+    //this is the piezo setup
+    pinMode(melodyPin, OUTPUT);
+    Serial.begin(9600);
+ 
+    //This is the microservo so it can rotate
+    microServo.attach(9); // This will control the microservo (D3)
+    microServo.write(90); // microservo will initially start at 0 degrees when it detects obstacle.
+}
+
+void loop(){
+    //ping sensor functionality.
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    //converts this into distance.
+    duration = pulseIn(echoPin, HIGH);
+    distance = (duration * 0.0343) / 2;
+ 
+    //distance will be in cm
+    Serial.print("distance:");
+    Serial.print(distance);
+    Serial.println("cm");
+       Serial.println();
+    delay(100);
+ 
+    // Obstacle detection criteria
+    if(distance < 30) {
+        //red LED will turn on, green will be off.
+        digitalWrite(4, HIGH); //red
+        digitalWrite(13, LOW); //green
+
+        //motors will temporarily stop here
+        digitalWrite(dcmotorPin1, LOW);
+        digitalWrite(dcmotorPin2, LOW);
+        digitalWrite(dcmotorPin3, LOW);
+        digitalWrite(dcmotorPin4, LOW);
+        Serial.println("stop now");
+        delay(500);
+
+        //this is the beep for the robot when it hits distance less than 65.
+        buzz(melodyPin, NOTE_DO5, 100);  // Play beep
+        delay(100);  // Beep interval delay
+
+        //robot will back up slowly to get out of the obstacle
+        digitalWrite(dcmotorPin1, HIGH);
+        digitalWrite(dcmotorPin2, LOW);
+        digitalWrite(dcmotorPin3, HIGH);
+        digitalWrite(dcmotorPin4, LOW);
+        Serial.println("back up");
+        delay(500);
+
+        buzz(melodyPin, NOTE_DO5, 100);  // Play beep
+        delay(100);  // Beep interval delay
+
+        //robot will stop second time so it can turn fully
+        digitalWrite(dcmotorPin1, LOW);
+        digitalWrite(dcmotorPin2, LOW);
+        digitalWrite(dcmotorPin3, LOW);
+        digitalWrite(dcmotorPin4, LOW);
+        Serial.println("stop again");
+        delay(100);
+
+        buzz(melodyPin, NOTE_DO5, 100);  // Play beep
+        delay(100);  // Beep interval delay
+     
+        //microservo will check the place for obstacles and make decision when it gets called.
+        checkPlace();
+     
+        //robot will turn either left or right depending on what side is clear (greater distance).
+        if (left_side_check > right_side_check) { //direction check
+          //robot will turn left
+          digitalWrite(dcmotorPin1, LOW);
+          digitalWrite(dcmotorPin2, HIGH);
+          digitalWrite(dcmotorPin3, LOW);
+          digitalWrite(dcmotorPin4, LOW);
+          Serial.println("turn left");
+          delay(500);
+          microServo.write(90);
+          delay(500);
+
+     } else {
+          //robot will turn right
+          digitalWrite(dcmotorPin1, LOW);
+          digitalWrite(dcmotorPin2, LOW);
+          digitalWrite(dcmotorPin3, LOW);
+          digitalWrite(dcmotorPin4, HIGH);
+          Serial.println("turn right");
+          delay(500);
+          microServo.write(90);
+          delay(500);
+        }
+         
+    } else {
+        //red LED will turn off, green will be on.
+        digitalWrite(4, LOW); //Red
+        digitalWrite(13, HIGH); //Green
+     
+        //Robot will now move forward
+        digitalWrite(dcmotorPin1, LOW);
+        digitalWrite(dcmotorPin2, HIGH);
+        digitalWrite(dcmotorPin3, LOW);
+        digitalWrite(dcmotorPin4, HIGH);
+        Serial.println("move forward");
+
+        //here the melodies will start as robot moves now
+        sing(1); // this is the first melody part of the mario song
+        sing(2); // this is the second melody part of the mario song.
+    }
+}
+  void checkPlace() {
+
+  	microServo.write(0); //microservo is set to check left direction initially (0 degrees)
+  	delay(500);
+  	digitalWrite(trigPin, LOW);
+  	delayMicroseconds(2);
+  	digitalWrite(trigPin, HIGH);
+  	delayMicroseconds(10);
+  	digitalWrite(trigPin, LOW);
+  	duration = pulseIn(echoPin, HIGH);
+  	distance = (duration * 0.0343) / 2;
+  	centerCheck = distance;
+         
+  	//microservo checks left, and see if its clear (0 degrees).
+  	microServo.write(0);
+  	delay(500);
+  	digitalWrite(trigPin, LOW);
+  	delayMicroseconds(2);
+  	digitalWrite(trigPin, HIGH);
+  	delayMicroseconds(10);
+  	digitalWrite(trigPin, LOW);
+  	duration = pulseIn(echoPin, HIGH);
+  	distance = (duration * 0.0343) / 2;
+  	left_side_check = distance;    
+
+  	//microservo will shift towards right, and see if its clear (180 degrees)
+ 	 microServo.write(180); // Right position
+  	delay(500);
+  	digitalWrite(trigPin, LOW);
+  	delayMicroseconds(2);
+  	digitalWrite(trigPin, HIGH);
+  	delayMicroseconds(10);
+ 	 digitalWrite(trigPin, LOW);
+  	duration = pulseIn(echoPin, HIGH);
+  	distance = (duration * 0.0343) / 2;
+  	right_side_check = distance;  
+}
+
+int song = 0;
+
+void sing(int s) {
+  song = s;
+ 
+  if (song == 2) {
+    int size = sizeof(underworld_melody) / sizeof(int);
+    for (int thisNote = 0; thisNote < size; thisNote++) {
+      ///////////////////////////////////////// Distance check so it's not stuck even after distance is less than 30.
+      digitalWrite(trigPin, LOW);
+      delayMicroseconds(2);
+      digitalWrite(trigPin, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(trigPin, LOW);
+      duration = pulseIn(echoPin, HIGH);
+      distance = (duration * 0.0343) / 2;
+
+      if(distance < 30){
+        break;
+      }
+      /////////////////////////////////////////// it will break the loop if distance less than 30
+     
+      int noteDuration = 1000 / underworld_tempo[thisNote]; //copied directly from hackster.io, except distance check
+
+      buzz(melodyPin, underworld_melody[thisNote], noteDuration);
+
+      int pauseBetweenNotes = noteDuration * 1.30;
+      delay(pauseBetweenNotes);
+
+      buzz(melodyPin, 0, noteDuration);
+    }
+   
+  } else {
+   
+    int size = sizeof(melody) / sizeof(int);
+    for (int thisNote = 0; thisNote < size; thisNote++) {
+     
+       ///////////////////////////////////////// Added distance check inside again.
+      digitalWrite(trigPin, LOW);
+      delayMicroseconds(2);
+      digitalWrite(trigPin, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(trigPin, LOW);
+      duration = pulseIn(echoPin, HIGH);
+      distance = (duration * 0.0343) / 2;
+
+      if(distance < 30){
+        break;
+      }
+      /////////////////////////////////////////// this should break out of the for loop when it changes distance, same idea.
+      
+      int noteDuration = 1000 / tempo[thisNote]; //copied direction from hackter.io
+      
+      buzz(melodyPin, melody[thisNote], noteDuration);
+
+      int pauseBetweenNotes = noteDuration * 1.30;
+      delay(pauseBetweenNotes);
+
+      buzz(melodyPin, 0, noteDuration);
+    }
+  }
+}
+
+void buzz(int Buzzer, long frequency, long length) { //copied direction from hackter.io
+  long delayValue = 1000000 / frequency / 2;
+  long numCycles = frequency * length / 1000;
+  for (long i = 0; i < numCycles; i++) {
+    digitalWrite(Buzzer, HIGH);
+    delayMicroseconds(delayValue);
+    digitalWrite(Buzzer, LOW);
+    delayMicroseconds(delayValue);
+  }
+ 
+    anRead = analogRead(ANALOG_IN);  // This will check value from the analog_in
+    Serial.println(anRead);
+ 
+  if(anRead > 300) {  
+     //Blue/yellow LEDs will be off if photoresister detects value of 650 or higher
+     digitalWrite(2,LOW);  
+     digitalWrite(12,LOW);
+}  
+  else {
+     digitalWrite(2, HIGH);
+     digitalWrite(12, HIGH);
+   }  
+}
